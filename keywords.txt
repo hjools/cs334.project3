@@ -1,0 +1,14 @@
+begin
+halt
+cat
+mouse
+clockwise
+move
+north
+south
+east
+west
+hole
+repeat
+size
+end
