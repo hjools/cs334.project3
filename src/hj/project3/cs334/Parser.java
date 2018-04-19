@@ -1,14 +1,13 @@
 package hj.project3.cs334;
 
 
+import apple.laf.JRSUIConstants;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Stack;
+import java.util.*;
 
 /**
  * An SLR(1) parser for the MOUSEYCAT program
@@ -32,6 +31,8 @@ class Parser {
 
     private Scanner scanner;
     private HashMap<String, Integer> symbolTable;
+
+    Stack<TNode> STstack;
 
 
     /**
@@ -222,22 +223,20 @@ class Parser {
     /**
      * Performs a rightmost derivation on the
      * MOUSEYCAT program given to the Parser object.
-     * Prints out productions used if program is
-     * syntactically correct. Otherwise displays
-     * error message.
+     * Returns true if no errors during parsing
      *
      */
-    void parse() {
+    Boolean parse() {
         // if errors during initial scanning
         // of program, immediately exit.
         if(scanner.hasErrors()) {
             System.out.println(ERRORMESSAGE);
-            return;
+            return false;
         }
 
         Stack<Integer> rStack = new Stack<Integer>(); // keeps track of production rules
         Stack<String> pStack = new Stack<String>(); // parsing stack
-        Stack<TNode> STstack = new Stack<TNode>(); // syntax tree stack
+        STstack = new Stack<TNode>(); // syntax tree stack
 
         // pushing first production rule onto stack
         pStack.push("0");
@@ -247,8 +246,6 @@ class Parser {
 
         int row = 0;
         int col = 0;
-
-        boolean parsingDone = false;
 
         // push all tokens of program onto
         // parsing stack before parsing
@@ -277,7 +274,7 @@ class Parser {
                 // syntactically correct
                 if(cellParts[0].equals("b")) {
                     System.out.println(ERRORMESSAGE);
-                    return;
+                    return false;
                 }
 
                 // if the cell entry is a shift
@@ -414,6 +411,8 @@ class Parser {
             }
             System.out.println();
         }
+
+        return true;
 
 
     }
@@ -593,6 +592,328 @@ class Parser {
                 return SNType.REPEAT;
             default:
                 return SNType.GENERAL;
+        }
+    }
+
+
+    /**
+     * Runs a syntactically correct MOUSEYCAT program
+     * and displays the results with any error messages
+     * if applicable.
+     *
+     */
+    void runProgram() {
+
+        ArrayList<String> errors = new ArrayList<String>();
+
+        String[][] board;
+        int width, height;
+
+        int catCount = 0;
+        int miceCount = 0;
+        HashSet<String> cats = new HashSet<>();
+        HashSet<String> mice = new HashSet<>();
+        HashMap<String, int[]> animals = new HashMap<>();
+        String[][] boardCats;
+        HashMap<String, ArrayList<String>> boardMice = new HashMap<>();
+
+        while(STstack.size() > 0) {
+            TNode current = STstack.pop();
+            if(current instanceof SizeNode) {
+                width = ((SizeNode) current).getWidth();
+                height = ((SizeNode) current).getHeight();
+                board = new String[height][width];
+                boardCats = new String[height][width];
+                for(int i = 0; i < width; i++) {
+                    for(int j = 0; j < height; j++) {
+                        board[i][j] = "B"; // represents blank space
+                    }
+                }
+                STstack.push(((SizeNode) current).getList());
+            }
+            else if(current instanceof CatNode) {
+                catCount++;
+                int xCoords = ((CatNode) current).getxCoord();
+                int yCoords = ((CatNode) current).getyCoord();
+                try {
+                    if(board[yCoords][xCoords].equals("C")) {
+                        // no room for two cats on one square
+                        errors.add("There's only room for one cat on this square.");
+                    } else {
+                        board[yCoords][xCoords] = "C";
+                        String name = ((CatNode) current).getName();
+                        if(!animals.containsKey(name)) {
+                            int[] position = new int[3];
+                            position[0] = yCoords;
+                            position[1] = xCoords;
+                            position[2] = dirToNum(((CatNode) current).getDirection());
+                            animals.put(name, position);
+                            cats.add(name);
+                            boardCats[yCoords][xCoords] = name;
+                        }
+                    }
+                    break;
+                } catch (IndexOutOfBoundsException e) {
+                    errors.add("Cat out of bounds.");
+                }
+            }
+            else if(current instanceof MouseNode) {
+                miceCount++;
+                int xCoords = ((MouseNode) current).getxCoord();
+                int yCoords = ((MouseNode) current).getyCoord();
+                try {
+                    if(!board[yCoords][xCoords].equals("H")) {
+                        // this is not a hole! only one mouse
+                        // can be here at a time.
+                        if(!board[yCoords][xCoords].equals("M")) {
+                            board[yCoords][xCoords] = "M";
+                        } else {
+                            errors.add("This square is too small for two mice!");
+                        }
+                    }
+                    // since this square is a hole, the mouse has
+                    // gone into the hole and we don't update the square
+                    String name = ((MouseNode) current).getName();
+                    if(!animals.containsKey(name)) {
+                        int[] position = new int[3];
+                        position[0] = yCoords;
+                        position[1] = xCoords;
+                        position[2] = dirToNum(((MouseNode) current).getDirection());
+                        animals.put(name, position);
+                        mice.add(name);
+                        ArrayList<String> temp = new ArrayList<>();
+                        temp.add(name);
+                        boardMice.put(
+                                Integer.toString(position[0]) + "," + Integer.toString(position[1])
+                                , temp);
+                    }
+                } catch (IndexOutOfBoundsException e) {
+                    errors.add("Mouse out of bounds.");
+                }
+            }
+            else if(current instanceof HoleNode) {
+                int xCoords = ((HoleNode) current).getxCoord();
+                int yCoords = ((HoleNode) current).getyCoord();
+                try {
+                    if(!board[yCoords][xCoords].equals("C")) {
+                        // cats cover holes.
+                        board[yCoords][xCoords] = "H";
+                    }
+                } catch (IndexOutOfBoundsException e) {
+                    errors.add("You have no right to place a hole outside these borders!");
+                }
+            }
+            else if(current instanceof SeqNode) {
+                // we parse the first half of the sequence node first!
+                STstack.push(((SeqNode) current).getSecond());
+                STstack.push(((SeqNode) current).getFirst());
+            }
+            else if(current instanceof MoveNode) {
+                Boolean validMove = false;
+                String what = ((MoveNode) current).getName();
+                int distance = ((MoveNode) current).getDistance();
+                if(!cats.contains(what) || !mice.contains(what)) {
+                    // you can't refer to nonexistant animals!
+                    errors.add("This animal does not exist.");
+                }
+                // current position of the animal
+                int[] position = animals.get(what);
+                int[] newPosition = new int[3];
+                // now calculate the ending position
+                if(position[2] > 0) {
+                    // N or E
+                    if(position[2] == 1) {
+                        // N
+                        newPosition[0] = position[0] + distance;
+                    } else {
+                        newPosition[1] = position[1] + distance;
+                    }
+                } else {
+                    // S or W
+                    if(position[2] == -1) {
+                        // S
+                        newPosition[0] = position[0] - distance;
+                    } else {
+                        newPosition[1] = position[1] - distance;
+                    }
+                }
+                newPosition[3] = position[3];
+                String occupying;
+                try {
+                    occupying = board[newPosition[0]][newPosition[1]];
+                } catch (IndexOutOfBoundsException e) {
+                    errors.add("Can't move beyond these borders.");
+                    break;
+                }
+                // is our animal a cat or a mouse?
+                String creature;
+                if(cats.contains(what)) {
+                    creature = "C";
+                } else {
+                    creature = "M";
+                }
+                if(occupying.equals("C")) {
+                    if(creature.equals("C")) {
+                        // first dibs!
+                        // this is an illegal move
+                        errors.add("There's only room for one cat on this square.");
+                        cats.remove(what);
+                        animals.remove(what);
+                        board[position[0]][position[1]] = "B";
+                        boardCats[position[0]][position[1]] = "";
+                    } else {
+                        // mouse got eaten :(
+                        // this is a legal move
+                        mice.remove(what);
+                        animals.remove(what);
+                        board[position[0]][position[1]] = "B";
+                        ArrayList<String> miceHere = boardMice.get(
+                                Integer.toString(position[0]) + "," + Integer.toString(position[1])
+                        );
+                        miceHere.remove(what);
+                        boardMice.put(
+                                Integer.toString(position[0]) + "," + Integer.toString(position[1])
+                                , miceHere
+                        );
+                        validMove = true;
+                    }
+                } else if(occupying.equals("M")) {
+                    if(creature.equals("C")) {
+                        // all mice here got eaten :(
+                        // this is a legal move
+                        board[newPosition[0]][newPosition[1]] = "C";
+                        ArrayList<String> miceHere = boardMice.get(
+                                Integer.toString(newPosition[0]) + "," + Integer.toString(newPosition[1])
+                        );
+                        for(int i = 0; i < miceHere.size(); i++) {
+                            mice.remove(miceHere.get(i));
+                            animals.remove(miceHere.get(i));
+                            miceHere.remove(i);
+                        }
+                        boardMice.put(
+                                Integer.toString(newPosition[0]) + "," + Integer.toString(newPosition[1])
+                                , miceHere
+                        );
+                        validMove = true;
+                    } else {
+                        // can't have two mice here unless it's a hole
+                        // only one mouse per square
+                        errors.add("This square is too small for two mice!");
+                        ArrayList<String> miceHere = boardMice.get(
+                                Integer.toString(position[0]) + "," + Integer.toString(position[1])
+                        );
+                        miceHere.remove(what);
+                        boardMice.put(
+                                Integer.toString(position[0]) + "," + Integer.toString(position[1])
+                                , miceHere
+                        );
+                        mice.remove(what);
+                        animals.remove(what);
+                    }
+                } // if square already occupied by mouse
+                else if (occupying.equals("H")) {
+                    // it's a hole!
+                    if(creature.equals("C")) {
+                        // cat covers hole
+                        boardCats[newPosition[0]][newPosition[1]] = what;
+                        board[newPosition[0]][newPosition[1]] = "B";
+                        animals.put(what, newPosition);
+                    } else {
+                        // mouse goes into hole
+                        ArrayList<String> miceHere = boardMice.get(
+                                Integer.toString(newPosition[0]) + "," + Integer.toString(newPosition[1])
+                        );
+                        miceHere.add(what);
+                        boardMice.put(
+                                Integer.toString(newPosition[0]) + "," + Integer.toString(newPosition[1])
+                                , miceHere
+                        );
+                        animals.put(what, newPosition);
+                    }
+
+                } // if square is hole
+                else {
+                    // normal movement
+                    if(creature.equals("C")) {
+                        boardCats[newPosition[0]][newPosition[1]] = what;
+                        board[newPosition[0]][newPosition[1]] = "C";
+                        board[position[0]][newPosition[1]] = "B";
+                        animals.put(what, newPosition);
+                    } else {
+                        ArrayList<String> miceHere = boardMice.get(
+                                Integer.toString(newPosition[0]) + "," + Integer.toString(newPosition[1])
+                        );
+                        miceHere.add(what);
+                        boardMice.put(
+                                Integer.toString(newPosition[0]) + "," + Integer.toString(newPosition[1])
+                                , miceHere
+                        );
+                        animals.put(what, newPosition);
+                        board[newPosition[0]][newPosition[1]] = "M";
+                        ArrayList<String> oldMiceHere = boardMice.get(
+                                Integer.toString(position[0]) + "," + Integer.toString(position[1])
+                        );
+                        oldMiceHere.remove(what);
+                        boardMice.put(
+                                Integer.toString(position[0]) + "," + Integer.toString(position[1])
+                                , oldMiceHere
+                        );
+                    }
+                } // normal movement
+
+            }
+            else if (current instanceof ClockNode) {
+                String name = ((ClockNode) current).getName();
+                try {
+                    int[] position = animals.get(name);
+                    int direction = position[2];
+                    if(direction > 0) {
+                        // N or E
+                        if(direction == 1) {
+                            // N to E
+                            direction = 2;
+                        } else {
+                            // E to S
+                            direction = -1;
+                        }
+                    } else {
+                        // S or W
+                        if(direction == -1) {
+                            // S to W
+                            direction = -2;
+                        } else {
+                            // W to N
+                            direction = 1;
+                        }
+                    }
+                    position[2] = direction;
+                    animals.put(name, position);
+                } catch (Exception e) {
+                    errors.add("This animal does not exist!");
+                }
+            }
+            else if (current instanceof RepeatNode) {
+                int counter = ((RepeatNode) current).getCounter();
+                TNode block = ((RepeatNode) current).getStmts();
+            }
+        }
+    }
+
+
+    /**
+     * To facilitate moving.
+     *
+     */
+    int dirToNum(String direction) {
+        switch(direction) {
+            case "north":
+                return 1;
+            case "south":
+                return -1;
+            case "east":
+                return 2;
+            case "west":
+                return -2;
         }
     }
 

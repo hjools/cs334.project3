@@ -17,6 +17,10 @@ public class Project3 {
 
         // start parsing
         Parser parser = new Parser(programName);
-        parser.parse();
+        Boolean parsedCorrectly = parser.parse();
+        if(parsedCorrectly) {
+            parser.runProgram();
+        }
+
     }
 }
