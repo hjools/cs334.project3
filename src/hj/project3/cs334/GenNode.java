@@ -9,15 +9,9 @@ package hj.project3.cs334;
  */
 class GenNode extends TNode {
 
-    private String value;
-
-    GenNode(String v) {
+    GenNode() {
         super("general");
-        this.value = v;
     }
 
-    String getValue() {
-        return this.value;
-    }
 
 }

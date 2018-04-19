@@ -35,11 +35,7 @@ class Token {
             case "keyword":
                 this.type = Type.KEYWORD;
                 this.chVals = chars;
-                if(chars.equals(";")) {
-                    this.intVals = -2;
-                } else {
-                    this.intVals = -1;
-                }
+                this.intVals = -1;
                 break;
             case "variable":
                 this.type = Type.VARIABLE;

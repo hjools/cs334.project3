@@ -17,7 +17,7 @@ import java.util.HashMap;
  * @author Helen Lee
  */
 class Scanner {
-    private static String printOutput = "Y";
+    private static String printOutput = "N";
     private static String outputHeading = "OUTPUT FOR PROGRAM ";
 
     private Keywords keywords;
@@ -92,6 +92,8 @@ class Scanner {
                     "Error reading file " + programName
             );
         }
+        // end of string marker
+        output.add(new Token("variable", "$", "$"));
 
         if(printOutput == "Y") {
             printResults();
@@ -354,7 +356,11 @@ class Scanner {
      * that need to be put onto parsing stack
      * @return      are we at end of token array
      */
-    boolean ongoing() {
-        return currentToken < output.size();
+    int ongoing() {
+        if (currentToken < output.size()) {
+            return 1;
+        } else if (currentToken == output.size()) {
+            return 0;
+        } else return -1;
     }
 }

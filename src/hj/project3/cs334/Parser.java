@@ -241,27 +241,26 @@ class Parser {
 
         // pushing first production rule onto stack
         pStack.push("0");
-        Token v_token = scanner.next();
-        String token = tokenToGrammar(v_token);
+        Token token = scanner.next();
+        String token_type = tokenToGrammar(token);
         boolean newToken = false;
 
         int row = 0;
         int col = 0;
 
+        boolean parsingDone = false;
+
         // push all tokens of program onto
         // parsing stack before parsing
-        while(scanner.ongoing()) {
+        while(scanner.ongoing() >= 0) {
             // examine top of stack
             String top = pStack.peek();
 //            System.out.println("top of stack " + top);
             // retrieve next valid token of program
-            if(newToken) {
-                v_token = scanner.next();
-//                while(v_token.getIntVals() == -2) {
-//                    v_token = scanner.next();
-//                }
-                token = tokenToGrammar(v_token);
-                col = parseTableHeader.get(token);
+            if(newToken && scanner.ongoing() > 0) {
+                token = scanner.next();
+                token_type = tokenToGrammar(token);
+                col = parseTableHeader.get(token_type);
             }
 //            System.out.print("lookahead " + token +", ");
 
@@ -283,8 +282,13 @@ class Parser {
 
                 // if the cell entry is a shift
                 else if(cellParts[0].equals("s")) {
+
                     // push the lookahead on stack
-                    pStack.push(token);
+                    pStack.push(token_type);
+                    // push the lookahead's token on STstack
+                    if(!token.getChVals().equals(";") || !token.getChVals().equals("$")) {
+                        STstack.push(new TNode("general", token));
+                    }
 
                     // set the shift value as current row
                     row = Integer.parseInt(
@@ -304,8 +308,7 @@ class Parser {
                     // first pop off the current row number
                     pStack.pop();
 
-                    // pop right side of production
-                    // number off stack
+                    // get the production rule's index from the cell
                     int prodIdx = Integer.parseInt(
                             String.join("", Arrays.copyOfRange(cellParts, 1, cellParts.length))
                     );
@@ -313,6 +316,17 @@ class Parser {
 
                     // get the production rule we are reducing by
                     ArrayList<String> production = grammar.get(prodIdx);
+                    // which syntax tree node do we need?
+                    SNType nodeType;
+                    if(prodIdx == 2) {
+                        nodeType = STstack.peek().getType();
+                    } else {
+                        nodeType = idNodeType(prodIdx);
+                    }
+                    // also need a temporary stack to hold
+                    // popped tokens from STstack to make
+                    // a new node
+                    Stack<TNode> tempNodeHolder = new Stack<TNode>();
 
                     // put all elements of the right side of
                     // production rule onto a new stack so
@@ -329,11 +343,26 @@ class Parser {
                         String t = pStack.pop();
                         if(t.equals(rules.peek())) {
                             rules.pop();
+                            // also pop from STstack for syntax tree
+                            // and add to temporary stack
+                            if(!t.equals(";") || !token.getChVals().equals("$")) {
+                                TNode tempNode = STstack.pop();
+                                tempNodeHolder.push(tempNode);
+                            }
                         }
                     }
 
+                    // synthesize new syntax tree node
+                    // and add back to STstack
+                    TNode newNode = makeNode(nodeType, tempNodeHolder);
+                    STstack.push(newNode);
+
                     // push production number to rStack
                     rStack.push(prodIdx);
+
+//                    if(prodIdx == 1) {
+//                        break;
+//                    }
 
                     // check what current top of pStack is
                     // to check for next row
@@ -351,7 +380,7 @@ class Parser {
 //                    System.out.print("new row " + row + ", ");
 
                     // set new col number
-                    col = parseTableHeader.get(token);
+                    col = parseTableHeader.get(token_type);
 //                    System.out.println("new col " + col);
 
                     // push row value to pStack
@@ -362,9 +391,8 @@ class Parser {
 
                 }
 
-                // accept
+                // we are done, so accept!
                 else if(cellParts[0].equals("a")) {
-                    rStack.push(1);
                     break;
                 }
 
@@ -400,6 +428,11 @@ class Parser {
      * @return      String, one letter
      */
     private String tokenToGrammar(Token v) {
+
+        if(v.getChVals().equals("$")){
+            return "$";
+        }
+
         String type = v.getType();
 
         if(type.equals("keyword")) {
@@ -444,6 +477,124 @@ class Parser {
         }
     }
 
+
+    /**
+     * Synthesizes a new syntax tree node
+     * to be pushed back onto the STstack
+     * as per a reduce operation that is
+     * specified by the needType argument.
+     *
+     * @param needType      type of the new syntax tree node
+     * @param tempNodes     holds the references that go into the new node
+     * @return              new syntax tree node for STstack
+     */
+    TNode makeNode(SNType needType, Stack<TNode> tempNodes) {
+        switch(needType) {
+            case SIZE:
+                tempNodes.pop(); // this is the keyword size
+                int iSize = tempNodes.pop().getToken().getIntVals();
+                int jSize = tempNodes.pop().getToken().getIntVals();
+                TNode temp = tempNodes.pop();
+                return new SizeNode(iSize, jSize, temp);
+            case CAT:
+                if(tempNodes.size() == 1) {
+                    return tempNodes.pop();
+                }
+                tempNodes.pop(); // this is the keyword
+                String vCat = tempNodes.pop().getToken().getChVals();
+                int iCat = tempNodes.pop().getToken().getIntVals();
+                int jCat = tempNodes.pop().getToken().getIntVals();
+                String dCat = tempNodes.pop().getToken().getChVals();
+                return new CatNode(vCat, iCat, jCat, dCat);
+            case MOUSE:
+                if(tempNodes.size() == 1) {
+                    return tempNodes.pop();
+                }
+                tempNodes.pop(); // this is the keyword
+                String vMouse = tempNodes.pop().getToken().getChVals();
+                int iMouse = tempNodes.pop().getToken().getIntVals();
+                int jMouse = tempNodes.pop().getToken().getIntVals();
+                String dMouse = tempNodes.pop().getToken().getChVals();
+                return new MouseNode(vMouse, iMouse, jMouse, dMouse);
+            case HOLE:
+                if(tempNodes.size() == 1) {
+                    return tempNodes.pop();
+                }
+                tempNodes.pop();
+                int iHole = tempNodes.pop().getToken().getIntVals();
+                int jHole = tempNodes.pop().getToken().getIntVals();
+                return new HoleNode(iHole, jHole);
+            case SEQ:
+                TNode first = tempNodes.pop();
+                TNode second = tempNodes.pop();
+                return new SeqNode(first, second);
+            case MOVE:
+                if(tempNodes.size() == 1) {
+                    return tempNodes.pop();
+                }
+                if(tempNodes.size() == 2) {
+                    tempNodes.pop();
+                    String vMove = tempNodes.pop().getToken().getChVals();
+                    return new MoveNode(vMove);
+                } else {
+                    tempNodes.pop();
+                    String vMove = tempNodes.pop().getToken().getChVals();
+                    int iMove = tempNodes.pop().getToken().getIntVals();
+                    return new MoveNode(vMove, iMove);
+                }
+            case CLOCKWISE:
+                if(tempNodes.size() == 1) {
+                    return tempNodes.pop();
+                }
+                tempNodes.pop();
+                String vClock = tempNodes.pop().getToken().getChVals();
+                return new ClockNode(vClock);
+            case REPEAT:
+                if(tempNodes.size() == 1) {
+                    return tempNodes.pop();
+                }
+                tempNodes.pop();
+                int iRepeat = tempNodes.pop().getToken().getIntVals();
+                TNode tempRepeat = tempNodes.pop();
+                return new RepeatNode(iRepeat, tempRepeat);
+            case GENERAL:
+            default:
+                return tempNodes.pop();
+        }
+    }
+
+
+    /**
+     * Identifies appropriate syntax tree node type
+     * that needs to be created based on the
+     * production rule used to reduce the parse stack
+     *
+     * @param idx index number of production rule
+     * @return a node type
+     */
+    SNType idNodeType(int idx) {
+        switch(idx) {
+            case 1:
+                return SNType.SIZE;
+            case 3:
+                return SNType.SEQ;
+            case 4:
+                return SNType.CAT;
+            case 5:
+                return SNType.MOUSE;
+            case 6:
+                return SNType.HOLE;
+            case 7:
+            case 8:
+                return SNType.MOVE;
+            case 9:
+                return SNType.CLOCKWISE;
+            case 10:
+                return SNType.REPEAT;
+            default:
+                return SNType.GENERAL;
+        }
+    }
 
     /**
      * Prints out the lookaheads & variables to console.

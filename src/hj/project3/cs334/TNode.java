@@ -9,59 +9,54 @@ package hj.project3.cs334;
  */
 class TNode {
 
-    enum Type {
-        SIZE,
-        CAT,
-        MOUSE,
-        HOLE,
-        SEQ,
-        MOVE,
-        CLOCKWISE,
-        REPEAT,
-        GENERAL
-    }
-
-    private Type type;
+    private SNType type;
+    private Token token;
 
     TNode(String type) {
         setType(type);
+    }
+    TNode(String type, Token t) {
+        setType(type);
+        this.token = t;
     }
 
     private void setType(String type) {
         switch(type) {
             case "size":
-                this.type = Type.SIZE;
+                this.type = SNType.SIZE;
                 break;
             case "cat":
-                this.type = Type.CAT;
+                this.type = SNType.CAT;
                 break;
             case "mouse":
-                this.type = Type.MOUSE;
+                this.type = SNType.MOUSE;
                 break;
             case "hole":
-                this.type = Type.HOLE;
+                this.type = SNType.HOLE;
                 break;
             case "sequence":
-                this.type = Type.SEQ;
+                this.type = SNType.SEQ;
                 break;
             case "move":
-                this.type = Type.MOVE;
+                this.type = SNType.MOVE;
                 break;
             case "clockwise":
-                this.type = Type.CLOCKWISE;
+                this.type = SNType.CLOCKWISE;
                 break;
             case "repeat":
-                this.type = Type.REPEAT;
+                this.type = SNType.REPEAT;
                 break;
             case "general":
-                this.type = Type.GENERAL;
+                this.type = SNType.GENERAL;
             default:
                 break;
         }
     }
 
-    Type getType() {
-        return this.type;
+    SNType getType() { return this.type; }
+
+    Token getToken() {
+        return this.token;
     }
 
 }
