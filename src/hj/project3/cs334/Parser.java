@@ -617,21 +617,22 @@ class Parser {
         String[][] boardCats;
         HashMap<String, ArrayList<String>> boardMice = new HashMap<>();
 
-        while(STstack.size() > 0) {
-            TNode current = STstack.pop();
-            if(current instanceof SizeNode) {
-                width = ((SizeNode) current).getWidth();
-                height = ((SizeNode) current).getHeight();
-                board = new String[height][width];
-                boardCats = new String[height][width];
-                for(int i = 0; i < width; i++) {
-                    for(int j = 0; j < height; j++) {
-                        board[i][j] = "B"; // represents blank space
-                    }
-                }
-                STstack.push(((SizeNode) current).getList());
+        // initialize board and housekeeping
+        TNode current = STstack.pop();
+        width = ((SizeNode) current).getWidth();
+        height = ((SizeNode) current).getHeight();
+        board = new String[height][width];
+        boardCats = new String[height][width];
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                board[i][j] = "B"; // represents blank space
             }
-            else if(current instanceof CatNode) {
+        }
+        STstack.push(((SizeNode) current).getList());
+
+        while(STstack.size() > 0) {
+            current = STstack.pop();
+            if(current instanceof CatNode) {
                 catCount++;
                 int xCoords = ((CatNode) current).getxCoord();
                 int yCoords = ((CatNode) current).getyCoord();
@@ -737,7 +738,7 @@ class Parser {
                         newPosition[1] = position[1] - distance;
                     }
                 }
-                newPosition[3] = position[3];
+                newPosition[2] = position[2];
                 String occupying;
                 try {
                     occupying = board[newPosition[0]][newPosition[1]];
@@ -895,8 +896,15 @@ class Parser {
             else if (current instanceof RepeatNode) {
                 int counter = ((RepeatNode) current).getCounter();
                 TNode block = ((RepeatNode) current).getStmts();
+                for(int i = 0; i < counter; i++) {
+                    STstack.push(block);
+                }
+            } else {
+
             }
         }
+
+        drawBoard(board);
     }
 
 
@@ -914,8 +922,22 @@ class Parser {
                 return 2;
             case "west":
                 return -2;
+            default:
+                return 0;
         }
     }
+
+
+    void drawBoard(String[][] board) {
+        for(int i = 0; i < board.length; i++) {
+            for(int j = 0; j < board[0].length; j++) {
+                System.out.print(board[i][j]);
+            }
+            System.out.println();
+        }
+
+    }
+
 
     /**
      * Prints out the lookaheads & variables to console.
