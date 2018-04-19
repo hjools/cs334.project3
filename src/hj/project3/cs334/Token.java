@@ -9,65 +9,76 @@ package hj.project3.cs334;
  * @author Helen Lee
  */
 class Token {
-    String location;
-    String type;
 
+    enum Type {
+        KEYWORD,
+        VARIABLE,
+        INTEGER,
+        ERROR
+    }
 
-    /**
-     * Default constructor for empty token.
-     * Represents invalid token.
-     *
-     */
+    String chVals;
+    int intVals;
+    Type type;
+    Keywords keywords;
+
     Token() {
-        this(null,null);
+        this.type = Type.ERROR;
     }
 
-    /**
-     * Constructor for punctuation and keywords.
-     * Because they are not put into the symbol
-     * table, the location (reference) parameter
-     * is set to null.
-     *
-     * @param b
-     */
-    Token(String b) {
-        this(null, b);
+    Token(String type, String chars, String vals) {
+        setter(type, chars, vals);
     }
 
-    /**
-     * Constructor for a valid token, used
-     * for variables and integers.
-     *
-     * @param a     reference to location in symbol table (key)
-     * @param b     type of token (variable or integer)
-     */
-    Token(String a, String b) {
-        location = a;
-        type = b;
+    private void setter(String type, String chars, String vals) {
+        switch(type) {
+            case "keyword":
+                this.type = Type.KEYWORD;
+                this.chVals = chars;
+                if(chars.equals(";")) {
+                    this.intVals = -2;
+                } else {
+                    this.intVals = -1;
+                }
+                break;
+            case "variable":
+                this.type = Type.VARIABLE;
+                this.chVals = chars;
+                this.intVals = 0;
+                break;
+            case "integer":
+                this.type = Type.INTEGER;
+                this.chVals = chars;
+                this.intVals = Integer.parseInt(vals);
+                break;
+            default:
+                break;
+        }
     }
 
-    public String getType() {
-        return type;
+    // Basic getter functions follow
+
+    String getType() {
+        switch(this.type) {
+            case KEYWORD:
+                return "keyword";
+            case VARIABLE:
+                return "variable";
+            case INTEGER:
+                return "integer";
+            default:
+                return "empty";
+        }
     }
 
-    public String getLocation() {
-        return location;
+    String getChVals() {
+        if(this.chVals != null) {
+            return this.chVals;
+        }
+        return "";
+    }
+    int getIntVals() {
+        return this.intVals;
     }
 
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public void setValue(String location) {
-        this.location = location;
-    }
-
-
-    /**
-     * Checks to see if token is invalid.
-     *
-     */
-    public boolean isEmpty() {
-        return (location == null && type == null);
-    }
 }

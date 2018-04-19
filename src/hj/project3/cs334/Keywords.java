@@ -5,18 +5,18 @@ import java.util.HashSet;
 /**
  * A class representing all the keywords
  * in the language MOUSEYCAT. Upon initialization,
- * the class must read in a dictionary file and
+ * the class must read in a dictionary file
  *
  * @author Helen Lee
  */
-public class Keywords {
+class Keywords {
 
     private HashSet<String> keywords;
 
     /**
      * Default constructor
      */
-    public Keywords() {
+    Keywords() {
         keywords = new HashSet<>();
         populate();
     }

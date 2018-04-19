@@ -16,8 +16,8 @@ import java.util.HashMap;
  *
  * @author Helen Lee
  */
-public class Scanner {
-    private static String printOutput = "N";
+class Scanner {
+    private static String printOutput = "Y";
     private static String outputHeading = "OUTPUT FOR PROGRAM ";
 
     private Keywords keywords;
@@ -26,7 +26,7 @@ public class Scanner {
     private String programName;
     private ArrayList<String[]> parsedProgram;
     private ArrayList<String> errors;
-    private ArrayList<ArrayList<Object>> output;
+    private ArrayList<Token> output;
     HashMap<String, Integer> symbolTable;
 
     private int currentToken;
@@ -45,7 +45,7 @@ public class Scanner {
         currentToken = 0;
         parsedProgram = new ArrayList<String[]>();
         errors = new ArrayList<String>();
-        output = new ArrayList<ArrayList<Object>>();
+        output = new ArrayList<Token>();
         symbolTable = new HashMap<String, Integer>();
         tokenList = new ArrayList<String>();
         scan(program);
@@ -93,11 +93,6 @@ public class Scanner {
             );
         }
 
-        for(int i = 0; i < output.size(); i++){
-            tokenList.add(output.get(i).get(0).toString());
-        }
-        tokenList.add("$");
-
         if(printOutput == "Y") {
             printResults();
         }
@@ -119,22 +114,19 @@ public class Scanner {
         // if token is a punctuation or a keyword,
         // just return the type and null value
         if(word.equals(";") || keywords.checkToken(word)) {
-            output.add(new ArrayList<Object>(
-                    Arrays.asList(word.toLowerCase(), null, null)
-            ));
-            return new Token(word.toLowerCase());
+            Token v = new Token("keyword", word.toLowerCase(), word);
+            output.add(v);
+            return v;
         }
         // check if token is an integer
         if(checkInt(word)) {
             // if integer starts with 0, must be length 1
             // otherwise, it's a variable
             if(word.startsWith("0") && word.length() != 1) {
-                // add to output
-                output.add(new ArrayList<Object>(
-                        Arrays.asList("variable", word, 0))
-                );
                 // create new token
-                Token v = new Token(word, "variable");
+                Token v = new Token("variable", word, word);
+                // add to output
+                output.add(v);
                 // check if already entered in symbol table
                 // and if not, add to symbol table
                 if(!symbolTable.containsKey(word)) {
@@ -145,20 +137,16 @@ public class Scanner {
             // integer token must be max 3 digits
             // otherwise, it's a variable
             if(word.length() > 3) {
-                output.add(new ArrayList<Object>(
-                        Arrays.asList("variable", word, 0))
-                );
-                Token v = new Token(word, "variable");
+                Token v = new Token("variable", word, word);
+                output.add(v);
                 if(!symbolTable.containsKey(word)) {
                     symbolTable.put(word, 0);
                 }
                 return v;
             }
             // otherwise the token is really an integer
-            output.add(new ArrayList<Object>(
-                    Arrays.asList("integer", word, Integer.parseInt(word)))
-            );
-            Token v = new Token(word, "integer");
+            Token v = new Token("integer", word, word);
+            output.add(v);
             if(!symbolTable.containsKey(word)) {
                 symbolTable.put(word, Integer.parseInt(word));
             }
@@ -167,10 +155,8 @@ public class Scanner {
 
         // is the token a variable?
         if(checkVar(word)) {
-            output.add(new ArrayList<Object>(
-                    Arrays.asList("variable", word.toLowerCase(), 0))
-            );
-            Token v = new Token(word, "variable");
+            Token v = new Token("variable", word, word);
+            output.add(v);
             if(!symbolTable.containsKey(word)) {
                 symbolTable.put(word, 0);
             }
@@ -289,19 +275,21 @@ public class Scanner {
         // first print out each processed token:
         // type, character value, int value
         for(int i = 0; i < output.size(); i++) {
-            ArrayList<Object> token = output.get(i);
+            Token v = output.get(i);
             String type, chVal, intVal;
-            type = token.get(0).toString();
-            if(token.get(1) != null) {
-                chVal = token.get(1).toString();
-            } else {
-                chVal = "";
+            type = v.getType();
+            switch (type) {
+                case "keyword":
+                    type = v.getChVals();
+                    chVal = "";
+                    intVal = Integer.toString(v.getIntVals());
+                    break;
+                default:
+                    chVal = v.getChVals();
+                    intVal = Integer.toString(v.getIntVals());
+                    break;
             }
-            if(token.get(2) != null) {
-                intVal = token.get(2).toString();
-            } else {
-                intVal = "";
-            }
+
             System.out.printf(
                     "%-14s%-" + longest + "s%-10s\n",
                     type, chVal, intVal
@@ -354,8 +342,8 @@ public class Scanner {
      *
      * @return      String value of token
      */
-    String next() {
-        String ret = tokenList.get(currentToken);
+    Token next() {
+        Token ret = output.get(currentToken);
         currentToken++;
         return ret;
     }
@@ -367,6 +355,6 @@ public class Scanner {
      * @return      are we at end of token array
      */
     boolean ongoing() {
-        return currentToken < tokenList.size();
+        return currentToken < output.size();
     }
 }

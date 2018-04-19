@@ -31,6 +31,7 @@ class Parser {
     private ArrayList<ArrayList<String>> grammar;
 
     private Scanner scanner;
+    private HashMap<String, Integer> symbolTable;
 
 
     /**
@@ -40,6 +41,7 @@ class Parser {
         createParseTable();
         writeGrammar();
         scanner = new Scanner(program);
+        symbolTable = scanner.getSymbolTable();
 
     }
 
@@ -233,12 +235,14 @@ class Parser {
             return;
         }
 
-        Stack<Integer> rStack = new Stack<Integer>();
-        Stack<String> pStack = new Stack<String>();
+        Stack<Integer> rStack = new Stack<Integer>(); // keeps track of production rules
+        Stack<String> pStack = new Stack<String>(); // parsing stack
+        Stack<TNode> STstack = new Stack<TNode>(); // syntax tree stack
 
         // pushing first production rule onto stack
         pStack.push("0");
-        String token = tokenToGrammar(scanner.next());
+        Token v_token = scanner.next();
+        String token = tokenToGrammar(v_token);
         boolean newToken = false;
 
         int row = 0;
@@ -252,7 +256,11 @@ class Parser {
 //            System.out.println("top of stack " + top);
             // retrieve next valid token of program
             if(newToken) {
-                token = tokenToGrammar(scanner.next());
+                v_token = scanner.next();
+//                while(v_token.getIntVals() == -2) {
+//                    v_token = scanner.next();
+//                }
+                token = tokenToGrammar(v_token);
                 col = parseTableHeader.get(token);
             }
 //            System.out.print("lookahead " + token +", ");
@@ -302,15 +310,21 @@ class Parser {
                             String.join("", Arrays.copyOfRange(cellParts, 1, cellParts.length))
                     );
 //                    System.out.println("production number " + prodIdx);
+
+                    // get the production rule we are reducing by
                     ArrayList<String> production = grammar.get(prodIdx);
-                    Stack<String> rules = new Stack<String>();
+
                     // put all elements of the right side of
                     // production rule onto a new stack so
                     // we can keep track of them while
                     // popping off the actual parsing stack
+                    Stack<String> rules = new Stack<String>();
                     for(int i = 1; i < production.size(); i++) {
                         rules.push(production.get(i));
                     }
+
+                    // now pop off right side of
+                    // production from parsing stack
                     while(!rules.empty()){
                         String t = pStack.pop();
                         if(t.equals(rules.peek())) {
@@ -362,6 +376,7 @@ class Parser {
 
         System.out.println(PASSMESSAGE);
 
+        // Prints out the production rules used to derive program.
         while(!rStack.isEmpty()) {
             int idx = rStack.pop();
             ArrayList<String> production = grammar.get(idx);
@@ -381,11 +396,17 @@ class Parser {
      * abbreviated version for use with the
      * parse table
      *
-     * @param t     String token
+     * @param v     Token being processed
      * @return      String, one letter
      */
-    private String tokenToGrammar(String t) {
-        switch (t) {
+    private String tokenToGrammar(Token v) {
+        String type = v.getType();
+
+        if(type.equals("keyword")) {
+            type = v.getChVals();
+        }
+
+        switch (type) {
             case "begin":
                 return "b";
             case "halt":
@@ -419,7 +440,7 @@ class Parser {
             case "variable":
                 return "v";
             default:
-                return t;
+                return type;
         }
     }
 
