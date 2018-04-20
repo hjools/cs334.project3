@@ -193,7 +193,7 @@ class Scanner {
 
             // skip rest of line if
             // encountering a comment
-            if(token.equals("//")) {
+            if(token.startsWith("//")) {
                 return;
             }
 
